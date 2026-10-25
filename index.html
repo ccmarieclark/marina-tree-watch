@@ -2,6 +2,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cpath d=%27M16 3l-7 10h4l-6 8h5l-7 8h22l-7-8h5l-6-8h4z%27 fill=%27%231d5a3c%27/%3E%3C/svg%3E">
 <meta name="description" content="Spot the first Christmas trees in the Marina, San Francisco.">
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
 /* Layout: a hand-inked, bird's-eye poster map of the Marina (pale-blue bay, white ink-hatched houses, red banner)
@@ -72,7 +73,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .mapcol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .map svg { overflow: hidden; }
 .map { width: 100%; background: var(--poster-paper); border-radius: 6px; box-shadow: 0 3px 6px rgba(20,22,28,.22), 0 16px 34px rgba(20,22,28,.30); overflow: hidden; }
-.map svg { width: 100%; height: auto; display: block; touch-action: manipulation; }
+.map svg { width: 100%; height: auto; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.zctl { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
+.zctl button { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #14161c; background: #fff; color: #14161c; font: 700 22px/1 Figtree, system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 6px rgba(20,22,28,.25); padding: 0; }
+.zctl button:active { background: #e8f1f3; }
+@keyframes sheetUp { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+#editor:not([hidden]), #detail:not([hidden]) { animation: sheetUp .24s cubic-bezier(.2,.8,.2,1); }
 .map svg.picking { cursor: crosshair; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .tabs { display: flex; gap: 4px; background: var(--panel-2); border-radius: 11px; padding: 4px; }
@@ -980,7 +986,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         Ls += '<text class="m-street" rotate="' + q.t.split("").map(function (c, i) { return rj[i % 12]; }).join(" ") + '" style="font-size:7.4px;letter-spacing:.07em;stroke-width:2.2;font-style:italic" x="0" y="2.6" text-anchor="middle" transform="translate(' + f1(q.x) + " " + f1(q.y) + ") rotate(" + f1(q.a) + ')">' + tx + "</text>";
         return;
       }
-      Ls += '<text class="m-street" style="font-size:' + (q.t === "Moscone Park" ? 6 : q.z ? 8.5 : 6.5) + 'px;letter-spacing:.1em;stroke-width:3.4' + (q.t === "Moscone Park" ? ";stroke:none" : "") + '" x="0" y="2.6" text-anchor="middle" transform="translate(' + f1(q.x) + " " + f1(q.y) + ") rotate(" + f1(q.a) + ')">' + q.t + "</text>"; 
+      Ls += '<text class="m-street" style="font-size:' + (q.fs || (q.t === "Moscone Park" ? 6 : q.z ? 8.5 : 6.5)) + 'px;letter-spacing:' + (q.ls || .1) + 'em;stroke:none" x="0" y="2.6" text-anchor="middle" transform="translate(' + f1(q.x) + " " + f1(q.y) + ") rotate(" + f1(q.a) + ')">' + q.t + "</text>"; 
     });
     var Lg = sv("g", {}); Lg.innerHTML = Ls;
     
@@ -1025,50 +1031,107 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
     pinLayer = sv("g", {}); svg.appendChild(pinLayer);
     draftLayer = sv("g", {}); svg.appendChild(draftLayer);
 
-    var zoomed = false, ZF = 2.6, vb = { x: VX, y: VY, w: VW, h: VH }, pd = null, moved = false;
+    var ZF = 2.6, ZMAX = 6, vb = { x: VX, y: VY, w: VW, h: VH }, zoomed = false, moved = false, anim = 0, inert = 0;
     function applyVB() { svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h); }
     function clampVB() { vb.x = Math.max(VX, Math.min(VX + VW - vb.w, vb.x)); vb.y = Math.max(VY, Math.min(VY + VH - vb.h, vb.y)); }
-    function setZoom(on, cx, cy) {
-      zoomed = on; var zb = document.getElementById("zoomOut"), th = document.getElementById("tapHint");
-      if (on) { vb.w = VW / ZF; vb.h = VH / ZF; vb.x = cx - vb.w / 2; vb.y = cy - vb.h / 2; clampVB(); }
-      else { vb = { x: VX, y: VY, w: VW, h: VH }; }
-      applyVB(); svg.style.touchAction = on ? "none" : "manipulation";
-      if (zb) zb.hidden = !on;
-      if (th) th.textContent = on ? "Drag to look around, then tap the street where the tree is." : "Tap to record or see a tree.";
+    function zf() { return VW / vb.w; }
+    function syncZoomUI() {
+      zoomed = zf() > 1.08;
+      var zb = document.getElementById("zoomOut"), th = document.getElementById("tapHint");
+      if (zb) zb.hidden = !zoomed;
+      if (th) th.textContent = zoomed ? "Drag to move, pinch to zoom, tap the street where the tree is." : "Tap to record or see a tree.";
     }
+    function setVB(x, y, w) {
+      w = Math.max(VW / ZMAX, Math.min(VW, w)); vb.w = w; vb.h = w * VH / VW; vb.x = x; vb.y = y; clampVB(); applyVB(); syncZoomUI();
+    }
+    function svgPt(cx, cy) { var r = svg.getBoundingClientRect(); return { x: vb.x + (cx - r.left) / r.width * vb.w, y: vb.y + (cy - r.top) / r.height * vb.h }; }
+    /* zoom so the map point under (cx,cy) stays under the finger */
+    function zoomAt(cx, cy, nw) {
+      var r = svg.getBoundingClientRect(), p = svgPt(cx, cy); nw = Math.max(VW / ZMAX, Math.min(VW, nw));
+      setVB(p.x - (cx - r.left) / r.width * nw, p.y - (cy - r.top) / r.height * (nw * VH / VW), nw);
+    }
+    function stopMotion() { if (anim) cancelAnimationFrame(anim); if (inert) cancelAnimationFrame(inert); anim = inert = 0; }
+    function animateTo(tx, ty, tw, ms) {
+      stopMotion(); tw = Math.max(VW / ZMAX, Math.min(VW, tw));
+      var sx = vb.x, sy = vb.y, sw = vb.w, t0 = performance.now(); ms = ms || 320;
+      (function step(now) {
+        var k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+        setVB(sx + (tx - sx) * e, sy + (ty - sy) * e, sw + (tw - sw) * e);
+        if (k < 1) anim = requestAnimationFrame(step); else anim = 0;
+      })(t0);
+    }
+    function focusOn(px, py, z) { var w = VW / z, h = w * VH / VW; animateTo(px - w / 2, py - h / 2, w); }
+    function setZoom(on, cx, cy) { if (on) focusOn(cx, cy, ZF); else animateTo(VX, VY, VW); }
+    function zoomStep(f) { var r = svg.getBoundingClientRect(); stopMotion(); var p = svgPt(r.left + r.width / 2, r.top + r.height / 2), nw = Math.max(VW / ZMAX, Math.min(VW, vb.w / f)), nh = nw * VH / VW; animateTo(p.x - nw / 2, p.y - nh / 2, nw, 220); }
     var zo = document.getElementById("zoomOut"); if (zo) zo.addEventListener("click", function () { setZoom(false); });
-    window.__zoomOut = function () { if (zoomed) { setZoom(false); renderAll(); } };
-    var wheelAcc = 0;
+    window.__zoomOut = function () { if (zoomed) { setZoom(false); } };
+    window.__mapMoved = function () { return moved; };
+    window.__mapZoomed = function () { return zoomed; };
+    var mapEl = document.getElementById("map");
+    if (mapEl && !document.getElementById("zIn")) {
+      var zc = document.createElement("div"); zc.className = "zctl";
+      zc.innerHTML = '<button type="button" id="zIn" aria-label="Zoom in">+</button><button type="button" id="zOut" aria-label="Zoom out">&minus;</button>';
+      mapEl.style.position = "relative"; mapEl.appendChild(zc);
+      document.getElementById("zIn").addEventListener("click", function (e) { e.stopPropagation(); zoomStep(1.6); });
+      document.getElementById("zOut").addEventListener("click", function (e) { e.stopPropagation(); zoomStep(1 / 1.6); });
+      zc.addEventListener("pointerdown", function (e) { e.stopPropagation(); }); zc.addEventListener("click", function (e) { e.stopPropagation(); });
+    }
+    svg.style.touchAction = "none";
     svg.addEventListener("wheel", function (e) {
-      if (!zoomed || e.deltaY <= 0) { wheelAcc = 0; return; }
-      e.preventDefault(); wheelAcc += e.deltaY;
-      if (wheelAcc > 60) { wheelAcc = 0; setZoom(false); renderAll(); }
+      if (!e.ctrlKey && !e.metaKey && !zoomed) return;
+      e.preventDefault(); stopMotion(); zoomAt(e.clientX, e.clientY, vb.w * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0022)));
     }, { passive: false });
-    var ptrs = {}, pinch0 = 0;
-    function ptrDist() { var k = Object.keys(ptrs); if (k.length < 2) return 0; var a = ptrs[k[0]], b = ptrs[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
-    svg.addEventListener("pointerdown", function (e) { ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; if (Object.keys(ptrs).length === 2) pinch0 = ptrDist(); });
+    var ptrs = {}, g = null, hist = [];
+    function np() { return Object.keys(ptrs).length; }
+    function pair() { var k = Object.keys(ptrs); return [ptrs[k[0]], ptrs[k[1]]]; }
+    svg.addEventListener("pointerdown", function (e) {
+      stopMotion(); ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (np() === 1) { moved = false; g = { mode: "pan", sx: e.clientX, sy: e.clientY, vx: vb.x, vy: vb.y, on: false }; hist = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }]; }
+      else if (np() === 2) { var a = pair(), d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1; g = { mode: "pinch", d0: d, w0: vb.w, vx: vb.x, vy: vb.y, mx: (a[0].x + a[1].x) / 2, my: (a[0].y + a[1].y) / 2 }; moved = true; }
+    });
     window.addEventListener("pointermove", function (e) {
       if (!ptrs[e.pointerId]) return; ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
-      if (zoomed && pinch0 && Object.keys(ptrs).length === 2 && ptrDist() < pinch0 * 0.72) { pinch0 = 0; ptrs = {}; pd = null; moved = true; setZoom(false); renderAll(); }
+      if (!g) return;
+      var r = svg.getBoundingClientRect();
+      if (g.mode === "pinch" && np() >= 2) {
+        var a = pair(), d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1, mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
+        var nw = Math.max(VW / ZMAX, Math.min(VW, g.w0 * g.d0 / d)), k0 = g.w0 / r.width;
+        /* map point that was under the starting midpoint stays under the current midpoint */
+        var px = g.vx + (g.mx - r.left) * k0, py = g.vy + (g.my - r.top) * k0;
+        setVB(px - (mx - r.left) / r.width * nw, py - (my - r.top) / r.height * (nw * VH / VW), nw);
+        return;
+      }
+      if (g.mode !== "pan") return;
+      var dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      if (!g.on) { if (Math.abs(dx) + Math.abs(dy) > (e.pointerType === "mouse" ? 6 : 12)) { g.on = true; moved = true; } else return; }
+      if (!zoomed) return;
+      var k = vb.w / r.width; vb.x = g.vx - dx * k; vb.y = g.vy - dy * k; clampVB(); applyVB();
+      var now = e.timeStamp; hist.push({ x: e.clientX, y: e.clientY, t: now }); while (hist.length > 2 && now - hist[0].t > 90) hist.shift();
     });
-    function ptrUp(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch0 = 0; }
-    window.addEventListener("pointerup", ptrUp); window.addEventListener("pointercancel", ptrUp);
-    svg.addEventListener("pointerdown", function (e) { if (zoomed) { pd = { x: e.clientX, y: e.clientY, vx: vb.x, vy: vb.y }; moved = false; } });
-    window.addEventListener("pointermove", function (e) {
-      if (!pd || !zoomed) return;
-      var dx = e.clientX - pd.x, dy = e.clientY - pd.y;
-      if (Math.abs(dx) + Math.abs(dy) > 7) moved = true;
-      if (!moved) return;
-      var k = vb.w / svg.clientWidth; vb.x = pd.vx - dx * k; vb.y = pd.vy - dy * k; clampVB(); applyVB();
-    });
-    window.addEventListener("pointerup", function () { pd = null; });
+    function endPtr(e) {
+      if (!ptrs[e.pointerId]) return; delete ptrs[e.pointerId];
+      if (g && g.mode === "pinch") { g = null; if (np() === 1) { var k = Object.keys(ptrs)[0], p = ptrs[k]; g = { mode: "pan", sx: p.x, sy: p.y, vx: vb.x, vy: vb.y, on: true }; hist = [{ x: p.x, y: p.y, t: performance.now() }]; } return; }
+      if (g && g.mode === "pan" && g.on && zoomed && hist.length > 1) {
+        var a = hist[0], b = hist[hist.length - 1], dt = Math.max(1, b.t - a.t), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt;
+        if (e.timeStamp - b.t < 120 && Math.hypot(vx, vy) > 0.15) {
+          var r = svg.getBoundingClientRect(), last = performance.now();
+          (function step(now) {
+            var dt2 = Math.max(0, Math.min(40, now - last)); last = now;
+            var k = vb.w / r.width; vb.x -= vx * dt2 * k; vb.y -= vy * dt2 * k; clampVB(); applyVB();
+            var f = Math.exp(-dt2 / 260); vx *= f; vy *= f;
+            if (Math.hypot(vx, vy) > 0.02) inert = requestAnimationFrame(step); else inert = 0;
+          })(last);
+        }
+      }
+      if (np() === 0) g = null;
+    }
+    window.addEventListener("pointerup", endPtr); window.addEventListener("pointercancel", endPtr);
     svg.addEventListener("click", function (ev) {
       if (moved) { moved = false; return; }
-      if (!zoomed && !ed) {
-        var zp = svg.createSVGPoint(); zp.x = ev.clientX; zp.y = ev.clientY;
-        var zq = zp.matrixTransform(svg.getScreenCTM().inverse());
-        if (zq.x < VX + 8 || zq.x > VX + VW - 8 || zq.y < VY + 8 || zq.y > VY + VH - 8) return;
-        selId = null; setZoom(true, zq.x, zq.y); renderAll(); return;
+      if (zf() < 1.8 && !ed) {
+        var zp = svgPt(ev.clientX, ev.clientY);
+        if (zp.x < VX + 8 || zp.x > VX + VW - 8 || zp.y < VY + 8 || zp.y > VY + VH - 8) return;
+        selId = null; focusOn(zp.x, zp.y, ZF); renderAll(); return;
       }
       if (mode === "drop" || mode === "move") {
         var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
@@ -1120,7 +1183,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
       g.appendChild(sv("path", { class: "halo", d: TP, "stroke-linejoin": "round" }));
       g.appendChild(sv("path", { class: "canopy", d: TP, "stroke-linejoin": "round" }));
       g.appendChild(sv("path", { d: "M-1.2 -26.2 L1.8 -21.8 L7.9 -22.2 L3 -17.3 L5.6 -12.1 L-.4 -15.6 L-5.1 -12.4 L-3.6 -17.9 L-8 -20.1 L-2.4 -21.3 Z", fill: "#f4c542", stroke: "#14161c", "stroke-width": .8, "stroke-linejoin": "round" }));
-      var open = function (ev) { ev.stopPropagation(); if (mode === "drop" || mode === "move") return; selId = t.id; renderAll(); };
+      var open = function (ev) { ev.stopPropagation(); if (window.__mapMoved && window.__mapMoved()) return; if (mode === "drop" || mode === "move") return; selId = t.id; renderAll(); };
       g.addEventListener("click", open);
       g.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(ev); } });
       pinLayer.appendChild(g);
@@ -1280,7 +1343,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
     paintRate(); $("#editor").hidden = false;
     renderAll(); markEx(); fitSheet();
   }
-  function closeEditor() { ed = null; mode = "idle"; $("#editor").hidden = true; document.body.style.paddingBottom = ""; if (window.__zoomOut) window.__zoomOut(); renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function closeEditor() { ed = null; mode = "idle"; $("#editor").hidden = true; document.body.style.paddingBottom = ""; renderAll(); }
   function loadSeen() { var p = ($("#edSeen").value || today()).split("-"); $("#edSeenM").value = String(+p[1]); $("#edSeenD").value = String(+p[2]); }
   function saveSeen() { var p = ($("#edSeen").value || today()).split("-"), m = +$("#edSeenM").value, d = +$("#edSeenD").value; $("#edSeen").value = p[0] + "-" + (m < 10 ? "0" : "") + m + "-" + (d < 10 ? "0" : "") + d; }
   function markEx() { ["#edLabel", "#edSeenM", "#edSeenD"].forEach(function (q) { var e = $(q); if (e) e.classList.toggle("ex", q !== "#edLabel" || !!e.value); }); }
@@ -1402,6 +1465,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
     if (!box) return;
     var P = ["position", "left", "right", "top", "bottom", "width", "margin", "maxHeight", "borderRadius", "borderBottom", "overflow", "zIndex"];
     if (box.hidden) { P.forEach(function (k) { box.style[k] = ""; }); return; }
+    if ((document.documentElement.clientWidth || window.innerWidth) <= 700) { P.forEach(function (k) { box.style[k] = ""; }); return; }
     var a = document.querySelector(anchorSel); if (!a) return;
     var r = a.getBoundingClientRect(), vw = document.documentElement.clientWidth || window.innerWidth;
     var w = Math.min(340, vw - 24), sx = window.pageXOffset || 0, sy = window.pageYOffset || 0;
@@ -1420,6 +1484,12 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         var sh = !$("#editor").hidden ? $("#editor") : (!$("#detail").hidden ? $("#detail") : null), pin = document.querySelector(".draft, .pin.sel");
         if (!sh || !pin) return;
         var r = sh.getBoundingClientRect(), pr = pin.getBoundingClientRect();
+        if ((document.documentElement.clientWidth || window.innerWidth) <= 700) {
+          document.body.style.paddingBottom = (r.height + 24) + "px";
+          var over = pr.bottom + 14 - r.top;
+          if (over > 0) window.scrollBy({ top: over, behavior: "smooth" });
+          return;
+        }
         if (r.bottom > window.innerHeight - 8) window.scrollBy({ top: Math.max(0, Math.min(r.bottom - window.innerHeight + 16, pr.top - 70)), behavior: "smooth" });
       }, 90);
     }
