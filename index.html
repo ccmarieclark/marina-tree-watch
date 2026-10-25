@@ -2,6 +2,13 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cpath d=%27M16 3l-7 10h4l-6 8h5l-7 8h22l-7-8h5l-6-8h4z%27 fill=%27%231d5a3c%27/%3E%3C/svg%3E">
 <meta name="description" content="Spot the first Christmas trees in the Marina, San Francisco.">
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#f6f3ea">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Marina Tree Watch">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
@@ -228,6 +235,10 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
 #editor .btn.quiet { background: transparent; border-color: transparent; color: #14161c; opacity: .7; text-decoration: underline; font-weight: 500; }
 #editor { z-index: 30; }
 #edPhotoField:focus-within .photobtn { outline: 2px solid #1d6a48; outline-offset: 2px; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+* { -webkit-tap-highlight-color: transparent; }
+.map svg, .zctl button { -webkit-touch-callout: none; }
+button, .btn, .photobtn, select { touch-action: manipulation; }
 #listBtn, #listClose { display: none; }
 @media (max-width: 700px) {
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
@@ -1014,7 +1025,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         labels += '<text class="m-pop" x="-29" y="' + f1(214 * SY) + '" text-anchor="middle" style="font-size:5.2px;letter-spacing:.04em;stroke:none">Palace of Fine Arts</text>';
     svg.appendChild(L);
     var Nr = sv("g", { "clip-path": "url(#mapClip)" });
-    Nr.innerHTML = NET.water + '<g>' + NET.road + '</g><g filter="url(#wob)">' + NET.houses + '</g>' + SULLY_SVG;
+    Nr.innerHTML = NET.water + '<g>' + NET.road + '</g><g' + (window.matchMedia && (matchMedia("(max-width: 700px)").matches || matchMedia("(pointer: coarse)").matches) ? '' : ' filter="url(#wob)"') + '>' + NET.houses + '</g>' + SULLY_SVG;
     svg.appendChild(Nr);
     var L3 = sv("g", { id: "lmk" }); L3.innerHTML = landmarks(); svg.appendChild(L3); svg.appendChild(rose);
     var L2 = sv("g", { transform: "translate(" + TX + " " + TY + ") rotate(-9)" }); L2.innerHTML = labels; svg.appendChild(L2); svg.appendChild(Lg);
@@ -1216,7 +1227,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
       if (tab === "lane" && !t.lane) return;
       var sp = toScreen(t.x, t.y);
       var g = sv("g", { class: "pin" + (t.id === selId ? " sel" : "") + (tab === "jolliest" && t.id === topId ? " top" : "") + (t.sample ? " sample" : "") + (t.pending ? " pending" : ""), transform: "translate(" + f1(sp[0]) + " " + f1(sp[1]) + ") scale(" + PIN_SCALE + ")", tabindex: "0", role: "button", "aria-label": t.label + ", first seen " + pretty(t.seen) + ", " + t.rating + " of 5" });
-      g.appendChild(sv("circle", { r: 16, fill: "transparent" }));
+      g.appendChild(sv("circle", { r: (window.matchMedia && matchMedia("(pointer: coarse)").matches) ? 24 : 16, fill: "transparent" }));
       g.appendChild(sv("circle", { class: "ring", cy: -2, r: 20 }));
       g.appendChild(sv("ellipse", { class: "shade", cx: 3, cy: 17, rx: 10, ry: 3.5 }));
       var TP = "M.8 -17.4 L-6.1 -7.3 L-3.9 -6.6 L-10.4 1.7 L-5.3 2.5 L-13.3 12.6 L-2.9 11.7 L-2.6 18.4 L2.4 17.6 L2 12.4 L12.6 12.9 L4.6 2.3 L10.3 1.9 L3.2 -6.4 L7 -7.6 Z";
@@ -1537,6 +1548,10 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
     window.__sheetKey = key;
   }
   window.addEventListener("resize", function () { placeSheets(); });
+  document.addEventListener("focusin", function (e) {
+    var t = e.target; if (!t || !t.closest || !t.closest("#editor")) return;
+    setTimeout(function () { try { t.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (x) {} }, 320);
+  });
 
   /* ---------- start ---------- */
   buildMap();
