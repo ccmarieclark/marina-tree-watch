@@ -228,6 +228,24 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
 #editor .btn.quiet { background: transparent; border-color: transparent; color: #14161c; opacity: .7; text-decoration: underline; font-weight: 500; }
 #editor { z-index: 30; }
 #edPhotoField:focus-within .photobtn { outline: 2px solid #1d6a48; outline-offset: 2px; }
+#listBtn, #listClose { display: none; }
+@media (max-width: 700px) {
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .wrap { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+  header, .stats, .zrow { display: none !important; }
+  .layout, .mapcol { display: block; }
+  .map { position: fixed !important; inset: 0; width: 100vw; height: 100vh; height: 100dvh; border-radius: 0 !important; box-shadow: none !important; z-index: 1; background: #f6f3ea; }
+  .map svg { width: 100%; height: 100%; }
+  .tap { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; z-index: 5; pointer-events: none; text-align: left; font-size: 14px; line-height: 1.3; font-weight: 600; padding: 8px 12px; margin: 0; background: rgba(255,255,255,.92); border: 2px solid #14161c; border-radius: 12px; box-shadow: 0 2px 8px rgba(20,22,28,.2); width: fit-content; max-width: calc(100vw - 24px); }
+  .bar { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; }
+  .zctl { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  #editor { max-height: 58vh; max-height: 58dvh; overflow-y: auto; }
+  #detail { max-height: 50vh; max-height: 50dvh; overflow-y: auto; }
+  #listBtn { display: block; position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 6; height: 40px; padding: 0 14px; border-radius: 12px; border: 2px solid #14161c; background: #fff; color: #14161c; font: 700 14px Figtree, system-ui, sans-serif; box-shadow: 0 2px 8px rgba(20,22,28,.2); }
+  .layout > aside { display: none; }
+  .layout > aside.open { display: flex; position: fixed; inset: 0; z-index: 40; overflow-y: auto; border-radius: 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); background: #f6f3ea; color: #14161c; }
+  .layout > aside.open #listClose { display: block; align-self: flex-end; }
+}
 </style>
 
 <div class="wrap">
@@ -1033,22 +1051,27 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
 
     var ZF = 2.6, ZMAX = 6, vb = { x: VX, y: VY, w: VW, h: VH }, zoomed = false, moved = false, anim = 0, inert = 0;
     function applyVB() { svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h); }
-    function clampVB() { vb.x = Math.max(VX, Math.min(VX + VW - vb.w, vb.x)); vb.y = Math.max(VY, Math.min(VY + VH - vb.h, vb.y)); }
+    function arf() { var r = svg.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r.height / r.width : VH / VW; }
+    function clampVB() {
+      var r = svg.getBoundingClientRect(), pad = (window.__sheetPad || 0) * (r.width ? vb.w / r.width : 0);
+      if (vb.w >= VW - 0.01) vb.x = VX + (VW - vb.w) / 2; else vb.x = Math.max(VX, Math.min(VX + VW - vb.w, vb.x));
+      if (vb.h >= VH - 0.01) { var cyy = VY + (VH - vb.h) / 2; vb.y = Math.max(cyy, Math.min(cyy + pad, vb.y)); } else vb.y = Math.max(VY, Math.min(VY + VH - vb.h + pad, vb.y));
+    }
     function zf() { return VW / vb.w; }
     function syncZoomUI() {
       zoomed = zf() > 1.08;
       var zb = document.getElementById("zoomOut"), th = document.getElementById("tapHint");
       if (zb) zb.hidden = !zoomed;
-      if (th) th.textContent = zoomed ? "Drag to move, pinch to zoom, tap the street where the tree is." : "Tap to record or see a tree.";
+      if (th) th.textContent = zoomed ? "Tap to record or see a tree" : "Tap to record or see a tree.";
     }
     function setVB(x, y, w) {
-      w = Math.max(VW / ZMAX, Math.min(VW, w)); vb.w = w; vb.h = w * VH / VW; vb.x = x; vb.y = y; clampVB(); applyVB(); syncZoomUI();
+      w = Math.max(VW / ZMAX, Math.min(VW, w)); vb.w = w; vb.h = w * arf(); vb.x = x; vb.y = y; clampVB(); applyVB(); syncZoomUI();
     }
     function svgPt(cx, cy) { var r = svg.getBoundingClientRect(); return { x: vb.x + (cx - r.left) / r.width * vb.w, y: vb.y + (cy - r.top) / r.height * vb.h }; }
     /* zoom so the map point under (cx,cy) stays under the finger */
     function zoomAt(cx, cy, nw) {
       var r = svg.getBoundingClientRect(), p = svgPt(cx, cy); nw = Math.max(VW / ZMAX, Math.min(VW, nw));
-      setVB(p.x - (cx - r.left) / r.width * nw, p.y - (cy - r.top) / r.height * (nw * VH / VW), nw);
+      setVB(p.x - (cx - r.left) / r.width * nw, p.y - (cy - r.top) / r.height * (nw * arf()), nw);
     }
     function stopMotion() { if (anim) cancelAnimationFrame(anim); if (inert) cancelAnimationFrame(inert); anim = inert = 0; }
     function animateTo(tx, ty, tw, ms) {
@@ -1060,12 +1083,19 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         if (k < 1) anim = requestAnimationFrame(step); else anim = 0;
       })(t0);
     }
-    function focusOn(px, py, z) { var w = VW / z, h = w * VH / VW; animateTo(px - w / 2, py - h / 2, w); }
+    function focusOn(px, py, z) { var w = VW / z, h = w * arf(); animateTo(px - w / 2, py - h / 2, w); }
     function setZoom(on, cx, cy) { if (on) focusOn(cx, cy, ZF); else animateTo(VX, VY, VW); }
-    function zoomStep(f) { var r = svg.getBoundingClientRect(); stopMotion(); var p = svgPt(r.left + r.width / 2, r.top + r.height / 2), nw = Math.max(VW / ZMAX, Math.min(VW, vb.w / f)), nh = nw * VH / VW; animateTo(p.x - nw / 2, p.y - nh / 2, nw, 220); }
+    function zoomStep(f) { var r = svg.getBoundingClientRect(); stopMotion(); var p = svgPt(r.left + r.width / 2, r.top + r.height / 2), nw = Math.max(VW / ZMAX, Math.min(VW, vb.w / f)), nh = nw * arf(); animateTo(p.x - nw / 2, p.y - nh / 2, nw, 220); }
     var zo = document.getElementById("zoomOut"); if (zo) zo.addEventListener("click", function () { setZoom(false); });
     window.__zoomOut = function () { if (zoomed) { setZoom(false); } };
     window.__mapMoved = function () { return moved; };
+    window.addEventListener("resize", function () { setVB(vb.x, vb.y, vb.w); });
+    /* slide the map so a pin stays visible above the bottom card */
+    window.__revealPin = function (pin, sheetTop) {
+      var pr = pin.getBoundingClientRect(), r = svg.getBoundingClientRect(), cy = pr.top + pr.height / 2, want = sheetTop * 0.42;
+      if (cy < sheetTop - 60 && cy > 70) return;
+      var k = vb.w / r.width; animateTo(vb.x, vb.y + (cy - want) * k, vb.w, 300);
+    };
     window.__mapZoomed = function () { return zoomed; };
     var mapEl = document.getElementById("map");
     if (mapEl && !document.getElementById("zIn")) {
@@ -1098,7 +1128,7 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         var nw = Math.max(VW / ZMAX, Math.min(VW, g.w0 * g.d0 / d)), k0 = g.w0 / r.width;
         /* map point that was under the starting midpoint stays under the current midpoint */
         var px = g.vx + (g.mx - r.left) * k0, py = g.vy + (g.my - r.top) * k0;
-        setVB(px - (mx - r.left) / r.width * nw, py - (my - r.top) / r.height * (nw * VH / VW), nw);
+        setVB(px - (mx - r.left) / r.width * nw, py - (my - r.top) / r.height * (nw * arf()), nw);
         return;
       }
       if (g.mode !== "pan") return;
@@ -1147,6 +1177,16 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
       }
     });
     $("#map").appendChild(svg);
+    if ((document.documentElement.clientWidth || window.innerWidth) <= 700) { var w0 = Math.min(VW, VH / arf()); setVB(VX + (VW - w0) / 2, VY, w0); }
+    (function () {
+      var as = document.querySelector(".layout > aside"); if (!as || document.getElementById("listBtn")) return;
+      var lb = document.createElement("button"); lb.id = "listBtn"; lb.type = "button"; lb.textContent = "Trees";
+      var cb = document.createElement("button"); cb.id = "listClose"; cb.type = "button"; cb.className = "btn"; cb.textContent = "Close";
+      as.insertBefore(cb, as.firstChild); /* list button removed on request */
+      
+      cb.addEventListener("click", function () { as.classList.remove("open"); });
+      as.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".row")) as.classList.remove("open"); });
+    })();
   }
 
   function rankMap() {
@@ -1476,6 +1516,8 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
   }
   function placeSheets() {
     document.body.style.paddingBottom = "";
+    var _mob = (document.documentElement.clientWidth || window.innerWidth) <= 700, _sh = !$("#editor").hidden ? $("#editor") : (!$("#detail").hidden ? $("#detail") : null);
+    window.__sheetPad = (_mob && _sh) ? _sh.getBoundingClientRect().height : 0;
     placeSheet($("#editor"), ".draft");
     placeSheet($("#detail"), ".pin.sel");
     var key = (ed ? "e" + (ed.id || "new") : "") + "|" + (selId || "");
@@ -1485,9 +1527,8 @@ input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; ma
         if (!sh || !pin) return;
         var r = sh.getBoundingClientRect(), pr = pin.getBoundingClientRect();
         if ((document.documentElement.clientWidth || window.innerWidth) <= 700) {
-          document.body.style.paddingBottom = (r.height + 24) + "px";
-          var over = pr.bottom + 14 - r.top;
-          if (over > 0) window.scrollBy({ top: over, behavior: "smooth" });
+          window.__sheetPad = r.height;
+          if (window.__revealPin) window.__revealPin(pin, r.top);
           return;
         }
         if (r.bottom > window.innerHeight - 8) window.scrollBy({ top: Math.max(0, Math.min(r.bottom - window.innerHeight + 16, pr.top - 70)), behavior: "smooth" });
