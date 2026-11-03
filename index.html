@@ -1485,10 +1485,11 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
     var item = { rid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), x: cur.x, y: cur.y, label: label, by: $("#edBy").value.trim(), note: $("#edNote").value.trim(), at: today(), photo: "" };
     $("#edSave").disabled = true; st.textContent = "Adding...";
     shrinkFit(cur.file).then(function (d) { item.photo = d; })
-      .then(function () { return fetch("/api/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item) }).then(function (r) { if (r.ok) return; return r.text().then(function (t) { var m = ""; try { m = JSON.parse(t).error || ""; } catch (e) { m = t.slice(0, 120); } var er = new Error("send"); er.msg = (m || ("error " + r.status)); throw er; }); }); })
-      .then(function () {
-        st.textContent = "Thank you! Your tree is waiting for approval.";
-        setTimeout(closeEditor, 1800);
+      .then(function () { return fetch("/api/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item) }).then(function (r) { if (r.ok) return r.json().catch(function () { return {}; }); return r.text().then(function (t) { var m = ""; try { m = JSON.parse(t).error || ""; } catch (e) { m = t.slice(0, 120); } var er = new Error("send"); er.msg = (m || ("error " + r.status)); throw er; }); }); })
+      .then(function (res) {
+        if (res && res.tree && res.tree.id) trees[res.tree.id] = res.tree;
+        st.textContent = "Thank you! Your tree is on the map.";
+        setTimeout(closeEditor, 1200);
       }).catch(function (e) { st.textContent = e && e.msg ? "Could not send: " + e.msg : e && e.message === "img" ? "That photo could not be read. Try a different one." : "Could not send. Check your connection and try again."; })
       .then(function () { $("#edSave").disabled = false; });
   });
@@ -1568,6 +1569,8 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
   buildMap();
   renderAll();
 
-  fetch("/trees.json", { cache: "no-cache" }).then(function (r) { return r.json(); }).then(function (d) { trees = d || {}; renderAll(); }).catch(function () {});
+  fetch("/trees.json", { cache: "no-cache" }).then(function (r) { return r.json(); }).then(function (d) { trees = d || {}; renderAll(); })
+    .then(function () { return fetch("/api/trees").then(function (r) { return r.json(); }).then(function (list) { (list || []).forEach(function (t) { if (t && t.id && !trees[t.id]) trees[t.id] = t; }); renderAll(); }); })
+    .catch(function () {});
 })();
 </script>

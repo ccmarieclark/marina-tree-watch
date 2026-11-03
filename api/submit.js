@@ -1,26 +1,31 @@
 import { put } from "@vercel/blob";
 
+// Visitors send a tree + photo. It goes live right away: the photo is saved as an image file and the tree as a small JSON file.
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
     let b = {};
     try { b = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; } catch (e) { return res.status(400).json({ error: "Could not read the request." }); }
-    const photo = String(b.photo || "");
-    if (!photo.startsWith("data:image/")) return res.status(400).json({ error: "A photo is required." });
-    if (photo.length > 600000) return res.status(413).json({ error: "That photo is too big. Try another one." });
-    const item = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      x: Number(b.x), y: Number(b.y),
+    const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(b.photo || ""));
+    if (!m) return res.status(400).json({ error: "A photo is required." });
+    if (m[1].length > 600000) return res.status(413).json({ error: "That photo is too big. Try another one." });
+    const buf = Buffer.from(m[1], "base64");
+    if (buf.length < 100 || buf[0] !== 0xff || buf[1] !== 0xd8) return res.status(400).json({ error: "That photo could not be read." });
+    const x = Number(b.x), y = Number(b.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 30 || x > 900 || y < 90 || y > 880) return res.status(400).json({ error: "Missing location." });
+    if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) return res.status(500).json({ error: "The photo storage is not connected to this project yet." });
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const img = await put("photos/" + id + ".jpg", buf, { access: "public", addRandomSuffix: false, contentType: "image/jpeg" });
+    const tree = {
+      id, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10,
       label: String(b.label || "").slice(0, 120),
       by: String(b.by || "").slice(0, 60),
       note: String(b.note || "").slice(0, 500),
-      at: new Date().toISOString().slice(0, 10),
-      photo,
+      seen: new Date().toISOString().slice(0, 10),
+      rating: 5, lane: false, photo: img.url,
     };
-    if (!Number.isFinite(item.x) || !Number.isFinite(item.y)) return res.status(400).json({ error: "Missing location." });
-    if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) return res.status(500).json({ error: "The photo storage is not connected to this project yet." });
-    await put("requests/" + item.id + ".json", JSON.stringify(item), { access: "public", addRandomSuffix: false, contentType: "application/json" });
-    return res.status(200).json({ ok: true });
+    await put("trees/" + id + ".json", JSON.stringify(tree), { access: "public", addRandomSuffix: false, contentType: "application/json" });
+    return res.status(200).json({ ok: true, tree });
   } catch (e) {
     console.error("submit failed", e);
     return res.status(500).json({ error: "Storage error: " + String((e && e.message) || e).slice(0, 160) });

@@ -6,8 +6,9 @@ A hand-inked map of the Marina (San Francisco). Visitors tap the map, add a phot
 - `index.html` the whole site (map + form)
 - `trees.json` the approved trees shown on the map
 - `photos/` photos for approved trees
-- `api/submit.js` receives visitor submissions and stores them privately-by-obscurity in Vercel Blob
-- `api/pending.js` lists waiting requests at `/api/pending?key=ADMIN_KEY`
+- `api/submit.js` receives visitor submissions and publishes them straight to the map (saved in Vercel Blob)
+- `api/trees.js` lists the visitor trees for the map
+- `api/admin.js` your private page to see and remove trees at `/api/admin?key=ADMIN_KEY`
 
 ## Go live in 10 minutes (no coding)
 1. Make a free account at vercel.com (sign in with Google or GitHub).
@@ -21,6 +22,8 @@ A hand-inked map of the Marina (San Francisco). Visitors tap the map, add a phot
 2. In Vercel: Storage > Create > Blob, connect it to the project (adds BLOB_READ_WRITE_TOKEN).
 3. In Vercel: Settings > Environment Variables > add `ADMIN_KEY` with a long private phrase. Redeploy.
 
-## Approving a tree
-Open `/api/pending?key=YOUR_ADMIN_KEY`, pick a request, then ask Claude Code:
-"Add this tree to trees.json and save its photo into photos/" and paste the request. Push to deploy.
+## How trees get on the map
+Visitors tap the map, add a photo and send. The tree shows up on the map right away for everyone (no approval step).
+
+## Removing a tree
+Open `/api/admin?key=YOUR_ADMIN_KEY`. You will see every visitor tree with its photo and a Remove link.
