@@ -84,6 +84,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .zctl { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
 .zctl button { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #14161c; background: #fff; color: #14161c; font: 700 22px/1 Figtree, system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 6px rgba(20,22,28,.25); padding: 0; }
 .zctl button:active { background: #e8f1f3; }
+#locBtn.on { background: #1a73e8; border-color: #0b3d91; color: #fff; }
+#locBtn svg { width: 22px; height: 22px; display: block; margin: 0 auto; }
+.locnote { position: absolute; right: 60px; bottom: 14px; max-width: 220px; z-index: 5; background: #fff; color: #14161c; border: 2px solid #14161c; border-radius: 10px; padding: 7px 10px; font: 600 13px/1.3 Figtree, system-ui, sans-serif; box-shadow: 0 2px 6px rgba(20,22,28,.25); }
+.locnote[hidden] { display: none; }
+.you-acc { fill: rgba(26,115,232,.16); stroke: rgba(26,115,232,.45); stroke-width: .8; }
+.you-halo { fill: rgba(26,115,232,.35); transform-box: fill-box; transform-origin: center; animation: youpulse 2.2s ease-out infinite; }
+.you-dot { fill: #1a73e8; stroke: #fff; stroke-width: 2.2; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+@keyframes youpulse { 0% { transform: scale(.7); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .you-halo { animation: none; opacity: .4; } }
 @keyframes sheetUp { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
 #editor:not([hidden]), #detail:not([hidden]) { animation: sheetUp .24s cubic-bezier(.2,.8,.2,1); }
 .map svg.picking { cursor: crosshair; }
@@ -1114,12 +1123,41 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
     var mapEl = document.getElementById("map");
     if (mapEl && !document.getElementById("zIn")) {
       var zc = document.createElement("div"); zc.className = "zctl";
-      zc.innerHTML = '<button type="button" id="zIn" aria-label="Zoom in">+</button><button type="button" id="zOut" aria-label="Zoom out">&minus;</button>';
+      zc.innerHTML = '<button type="button" id="locBtn" aria-label="Show where I am" aria-pressed="false" title="Show where I am"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg></button><button type="button" id="zIn" aria-label="Zoom in">+</button><button type="button" id="zOut" aria-label="Zoom out">&minus;</button>';
       mapEl.style.position = "relative"; mapEl.appendChild(zc);
       document.getElementById("zIn").addEventListener("click", function (e) { e.stopPropagation(); zoomStep(1.6); });
       document.getElementById("zOut").addEventListener("click", function (e) { e.stopPropagation(); zoomStep(1 / 1.6); });
       zc.addEventListener("pointerdown", function (e) { e.stopPropagation(); }); zc.addEventListener("click", function (e) { e.stopPropagation(); });
     }
+    /* ---------- "you are here": a blue dot from the phone's GPS ---------- */
+    (function () {
+      var GX = [0.53461, -0.016996, 514.8065], GY = [0.014288, -0.649302, 660.5078];
+      function geoToSvg(lat, lon) { var e = (lon + 122.44) * 88000, n = (lat - 37.8) * 111200; return [GX[0] * e + GX[1] * n + GX[2], GY[0] * e + GY[1] * n + GY[2]]; }
+      var btn = document.getElementById("locBtn"), mapHost = document.getElementById("map");
+      if (!btn || !mapHost || !navigator.geolocation) { if (btn) btn.hidden = true; return; }
+      var layer = sv("g", { "pointer-events": "none" }); svg.appendChild(layer);
+      var note = document.createElement("div"); note.className = "locnote"; note.hidden = true; note.setAttribute("role", "status"); mapHost.appendChild(note);
+      var watchId = null, first = true, noteT = 0;
+      function say(msg) { note.textContent = msg; note.hidden = false; clearTimeout(noteT); noteT = setTimeout(function () { note.hidden = true; }, 5200); }
+      function stop() { if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; layer.innerHTML = ""; btn.classList.remove("on"); btn.setAttribute("aria-pressed", "false"); }
+      function place(pos) {
+        var s = geoToSvg(pos.coords.latitude, pos.coords.longitude);
+        if (!(s[0] >= 110 && s[0] <= 855 && s[1] >= 130 && s[1] <= 820)) { layer.innerHTML = ""; if (first) say("You're outside the Marina map right now."); first = false; return; }
+        var acc = Math.max(8, Math.min(pos.coords.accuracy || 20, 100)) / 1.7;
+        layer.innerHTML = '<g transform="translate(' + s[0].toFixed(1) + " " + s[1].toFixed(1) + ')"><circle class="you-acc" r="' + acc.toFixed(1) + '"/><circle class="you-halo" r="6"/><circle class="you-dot" r="5"/></g>';
+        if (first) { first = false; if (zoomed) focusOn(s[0], s[1], zf()); }
+      }
+      function fail(err) {
+        stop();
+        say(err && err.code === 1 ? "Location is off for this site. Turn it on in your browser or phone settings." : "Could not find you yet. Try again outside.");
+      }
+      function start() {
+        first = true; btn.classList.add("on"); btn.setAttribute("aria-pressed", "true");
+        watchId = navigator.geolocation.watchPosition(place, fail, { enableHighAccuracy: true, maximumAge: 8000, timeout: 20000 });
+      }
+      btn.addEventListener("click", function (e) { e.stopPropagation(); if (watchId !== null) stop(); else start(); });
+      try { if (navigator.permissions && navigator.permissions.query) navigator.permissions.query({ name: "geolocation" }).then(function (r) { if (r.state === "granted") start(); }).catch(function () {}); } catch (e) {}
+    })();
     svg.style.touchAction = "none";
     svg.addEventListener("wheel", function (e) {
       if (!e.ctrlKey && !e.metaKey && !zoomed) return;
