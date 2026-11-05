@@ -261,8 +261,11 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
   .zctl { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
   #editor { max-height: 58vh; max-height: 58dvh; overflow-y: auto; }
   #detail { max-height: 50vh; max-height: 50dvh; overflow-y: auto; }
-  #editor, #detail { bottom: var(--kb, 0px); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  html.kb-open #editor { max-height: calc(var(--vvh, 100dvh) - 10px); padding-bottom: 14px; animation: none; }
+  #detail { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  /* While the form is open, it is part of the normal page (not pinned), so iPhone keeps the cursor and taps lined up
+     and scrolls the field you tap above the keyboard by itself. The map stays fixed behind it. */
+  html.ed-flow, html.ed-flow body { height: auto; overflow-x: hidden; overflow-y: auto; }
+  html.ed-flow #editor { position: relative; left: auto; right: auto; bottom: auto; max-height: none; overflow: visible; width: 100vw; max-width: 100vw; margin: var(--edtop, 40vh) 0 0 calc(50% - 50vw); animation: none; }
   #listBtn { display: block; position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 6; height: 40px; padding: 0 14px; border-radius: 12px; border: 2px solid #14161c; background: #fff; color: #14161c; font: 700 14px Figtree, system-ui, sans-serif; box-shadow: 0 2px 8px rgba(20,22,28,.2); }
   .layout > aside { display: none; }
   .layout > aside.open { display: flex; position: fixed; inset: 0; z-index: 40; overflow-y: auto; border-radius: 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); background: #f6f3ea; color: #14161c; }
@@ -1600,36 +1603,22 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
       }, 90);
     }
     window.__sheetKey = key;
+    if (typeof setFlow === "function") setFlow();
   }
   window.addEventListener("resize", function () { placeSheets(); });
-  /* Phones: keep the form sitting right on top of the keyboard, and only ever scroll inside the form.
-     (Scrolling the whole page while the keyboard is up is what made iPhone taps land in the wrong place.) */
-  var vv = window.visualViewport, rootEl = document.documentElement;
-  function isMob() { return (rootEl.clientWidth || window.innerWidth) <= 700; }
-  function revealField(t) {
-    var sh = $("#editor"); if (!sh || sh.hidden || !t || !t.closest) return;
-    var f = t.closest(".field") || t, sr = sh.getBoundingClientRect(), fr = f.getBoundingClientRect(), bottom = fr.bottom;
-    if (t.id === "edBy" || t.id === "edNote") { var a = $("#editor .acts"); if (a) bottom = Math.max(bottom, a.getBoundingClientRect().bottom); }
-    if (bottom > sr.bottom - 10) sh.scrollTop += Math.min(bottom - (sr.bottom - 10), fr.top - sr.top - 10);
-    else if (fr.top < sr.top + 10) sh.scrollTop -= sr.top + 10 - fr.top;
+  /* Phones: while the form is open it scrolls with the page instead of being pinned to the screen (see the ed-flow CSS). */
+  function setFlow() {
+    var rootEl = document.documentElement, sh = $("#editor"), on = !!sh && !sh.hidden && (rootEl.clientWidth || window.innerWidth) <= 700, was = rootEl.classList.contains("ed-flow");
+    if (on) {
+      var vh = window.innerHeight, h = Math.max(sh.offsetHeight, sh.scrollHeight + 2);
+      var want = Math.round(Math.max(vh - h, vh * 0.3));
+      rootEl.style.setProperty("--edtop", want + "px");
+      if (!was) { window.scrollTo(0, 0); rootEl.classList.add("ed-flow"); }
+      /* allow for anything above the form on the page, so its bottom lines up with the screen bottom */
+      var extra = Math.round(sh.getBoundingClientRect().top + (window.pageYOffset || 0)) - want;
+      if (extra) rootEl.style.setProperty("--edtop", Math.max(0, want - extra) + "px");
+    } else if (was) { rootEl.classList.remove("ed-flow"); window.scrollTo(0, 0); }
   }
-  function syncKb() {
-    if (!vv) return;
-    var lh = rootEl.clientHeight || window.innerHeight;
-    var kb = Math.max(0, Math.round(lh - vv.height - vv.offsetTop)), open = isMob() && kb > 80;
-    rootEl.style.setProperty("--kb", (open ? kb : 0) + "px");
-    rootEl.style.setProperty("--vvh", Math.round(vv.height) + "px");
-    rootEl.classList.toggle("kb-open", open);
-    if (!open && isMob() && (window.pageYOffset || 0) !== 0) window.scrollTo(0, 0);
-    var act = document.activeElement;
-    if (open && act && act.closest && act.closest("#editor")) requestAnimationFrame(function () { revealField(act); });
-  }
-  if (vv) { vv.addEventListener("resize", syncKb); vv.addEventListener("scroll", syncKb); }
-  document.addEventListener("focusin", function (e) {
-    var t = e.target; if (!t || !t.closest || !t.closest("#editor")) return;
-    setTimeout(function () { syncKb(); revealField(t); }, 300);
-  });
-  document.addEventListener("focusout", function () { setTimeout(syncKb, 350); });
 
   /* ---------- start ---------- */
   buildMap();
