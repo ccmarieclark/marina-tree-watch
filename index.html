@@ -183,7 +183,7 @@ textarea { min-height: 72px; resize: vertical; }
 h1.sr, .stats, .bar, aside.card { display: none !important; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .layout { grid-template-columns: minmax(0, 1fr); }
-.wrap { max-width: min(1500px, calc((100vh - 70px) * 1.12)); }
+.wrap { max-width: min(1500px, calc((100vh - 70px) * 1.12)); max-width: min(1500px, calc((100dvh - 70px) * 1.12)); }
 body { background: #f6f3ea; }
 .zrow { display: flex; justify-content: center; }
 .zrow:empty { display: none; }
@@ -261,6 +261,8 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
   .zctl { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
   #editor { max-height: 58vh; max-height: 58dvh; overflow-y: auto; }
   #detail { max-height: 50vh; max-height: 50dvh; overflow-y: auto; }
+  #editor, #detail { bottom: var(--kb, 0px); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  html.kb-open #editor { max-height: calc(var(--vvh, 100dvh) - 10px); padding-bottom: 14px; animation: none; }
   #listBtn { display: block; position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 6; height: 40px; padding: 0 14px; border-radius: 12px; border: 2px solid #14161c; background: #fff; color: #14161c; font: 700 14px Figtree, system-ui, sans-serif; box-shadow: 0 2px 8px rgba(20,22,28,.2); }
   .layout > aside { display: none; }
   .layout > aside.open { display: flex; position: fixed; inset: 0; z-index: 40; overflow-y: auto; border-radius: 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); background: #f6f3ea; color: #14161c; }
@@ -1501,9 +1503,11 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
   }
   $("#edSave").addEventListener("click", function () {
     if (!ed) return;
-    var label = $("#edLabel").value.trim();
-    if (!label) { $("#edStatus").textContent = "Add where the tree is."; return; }
     var cur = ed;
+    if (!isFinite(cur.x) || !isFinite(cur.y) || cur.x < -70 || cur.x > 610 || cur.y < -60 || cur.y > 480) {
+      $("#edStatus").textContent = "Tap the map where the tree is. The red circle sets the spot."; return;
+    }
+    var label = $("#edLabel").value.trim() || nearLabel(cur.x, cur.y);
     var st = $("#edStatus");
     if (canEdit && trCol) {
       var body = { x: cur.x, y: cur.y, label: label, seen: $("#edSeen").value || today(), rating: 5, by: $("#edBy").value.trim(), note: $("#edNote").value.trim(), lane: !!cur.lane, photo: cur.photo || "", updated: new Date().toISOString() };
@@ -1598,10 +1602,34 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
     window.__sheetKey = key;
   }
   window.addEventListener("resize", function () { placeSheets(); });
+  /* Phones: keep the form sitting right on top of the keyboard, and only ever scroll inside the form.
+     (Scrolling the whole page while the keyboard is up is what made iPhone taps land in the wrong place.) */
+  var vv = window.visualViewport, rootEl = document.documentElement;
+  function isMob() { return (rootEl.clientWidth || window.innerWidth) <= 700; }
+  function revealField(t) {
+    var sh = $("#editor"); if (!sh || sh.hidden || !t || !t.closest) return;
+    var f = t.closest(".field") || t, sr = sh.getBoundingClientRect(), fr = f.getBoundingClientRect(), bottom = fr.bottom;
+    if (t.id === "edBy" || t.id === "edNote") { var a = $("#editor .acts"); if (a) bottom = Math.max(bottom, a.getBoundingClientRect().bottom); }
+    if (bottom > sr.bottom - 10) sh.scrollTop += Math.min(bottom - (sr.bottom - 10), fr.top - sr.top - 10);
+    else if (fr.top < sr.top + 10) sh.scrollTop -= sr.top + 10 - fr.top;
+  }
+  function syncKb() {
+    if (!vv) return;
+    var lh = rootEl.clientHeight || window.innerHeight;
+    var kb = Math.max(0, Math.round(lh - vv.height - vv.offsetTop)), open = isMob() && kb > 80;
+    rootEl.style.setProperty("--kb", (open ? kb : 0) + "px");
+    rootEl.style.setProperty("--vvh", Math.round(vv.height) + "px");
+    rootEl.classList.toggle("kb-open", open);
+    if (!open && isMob() && (window.pageYOffset || 0) !== 0) window.scrollTo(0, 0);
+    var act = document.activeElement;
+    if (open && act && act.closest && act.closest("#editor")) requestAnimationFrame(function () { revealField(act); });
+  }
+  if (vv) { vv.addEventListener("resize", syncKb); vv.addEventListener("scroll", syncKb); }
   document.addEventListener("focusin", function (e) {
     var t = e.target; if (!t || !t.closest || !t.closest("#editor")) return;
-    setTimeout(function () { try { t.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (x) {} }, 320);
+    setTimeout(function () { syncKb(); revealField(t); }, 300);
   });
+  document.addEventListener("focusout", function () { setTimeout(syncKb, 350); });
 
   /* ---------- start ---------- */
   buildMap();

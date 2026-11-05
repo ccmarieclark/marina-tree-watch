@@ -11,8 +11,10 @@ export default async function handler(req, res) {
     if (m[1].length > 600000) return res.status(413).json({ error: "That photo is too big. Try another one." });
     const buf = Buffer.from(m[1], "base64");
     if (buf.length < 100 || buf[0] !== 0xff || buf[1] !== 0xd8) return res.status(400).json({ error: "That photo could not be read." });
-    const x = Number(b.x), y = Number(b.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 30 || x > 900 || y < 90 || y > 880) return res.status(400).json({ error: "Missing location." });
+    const x = b.x == null || b.x === "" ? NaN : Number(b.x), y = b.y == null || b.y === "" ? NaN : Number(b.y);
+    // x and y are the map's own street-grid numbers (the same ones the map uses when you tap): about -55 to 595 across, -45 to 462 down.
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: "Tap the map where the tree is, then send again." });
+    if (x < -70 || x > 610 || y < -60 || y > 480) return res.status(400).json({ error: "That spot is outside the Marina map. Tap the map where the tree is." });
     if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) return res.status(500).json({ error: "The photo storage is not connected to this project yet." });
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = await put("photos/" + id + ".jpg", buf, { access: "public", addRandomSuffix: false, contentType: "image/jpeg" });
