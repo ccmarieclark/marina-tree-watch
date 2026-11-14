@@ -1,4 +1,4 @@
-# Marina Tree Watch
+# Marina Holiday Watch
 
 A hand-inked map of the Marina (San Francisco). Visitors tap the map, choose Tree or Menorah, add a photo and an optional comment, and send it.
 
