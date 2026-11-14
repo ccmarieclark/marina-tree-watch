@@ -24,10 +24,10 @@ export default async function handler(req, res) {
     items.sort((a, b) => (a.id < b.id ? 1 : -1));
     const rows = items.map((t) => `<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #ddd">
       <img src="${esc(t.photo)}" style="width:96px;height:96px;object-fit:cover;border-radius:8px">
-      <div style="flex:1"><b>${esc(t.label)}</b><br>${esc(t.by || "anonymous")} &middot; ${esc(t.seen)}<br>${esc(t.note)}</div>
-      <a href="/api/admin?key=${encodeURIComponent(key)}&remove=${esc(t.id)}" onclick="return confirm('Remove this tree?')" style="color:#b00020;font-weight:600">Remove</a></div>`).join("");
+      <div style="flex:1"><b>${esc(t.label)}</b> <span style="color:#555">(${t.kind === "menorah" ? "menorah" : "tree"})</span><br>${esc(t.by || "anonymous")} &middot; ${esc(t.seen)}<br>${esc(t.note)}</div>
+      <a href="/api/admin?key=${encodeURIComponent(key)}&remove=${esc(t.id)}" onclick="return confirm('Remove this one?')" style="color:#b00020;font-weight:600">Remove</a></div>`).join("");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.status(200).send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:system-ui;max-width:640px;margin:20px auto;padding:0 16px"><h2>Trees added by visitors (${items.length})</h2>${rows || "<p>None yet.</p>"}`);
+    return res.status(200).send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:system-ui;max-width:640px;margin:20px auto;padding:0 16px"><h2>Trees and menorahs added by visitors (${items.length})</h2>${rows || "<p>None yet.</p>"}`);
   } catch (e) {
     return res.status(500).send("Error: " + esc(e && e.message));
   }

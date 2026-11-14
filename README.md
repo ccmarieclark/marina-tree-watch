@@ -1,6 +1,6 @@
 # Marina Tree Watch
 
-A hand-inked map of the Marina (San Francisco). Visitors tap the map, add a photo and an optional comment, and send a tree for approval.
+A hand-inked map of the Marina (San Francisco). Visitors tap the map, choose Tree or Menorah, add a photo and an optional comment, and send it.
 
 ## Files
 - `index.html` the whole site (map + form)
@@ -23,7 +23,7 @@ A hand-inked map of the Marina (San Francisco). Visitors tap the map, add a phot
 3. In Vercel: Settings > Environment Variables > add `ADMIN_KEY` with a long private phrase. Redeploy.
 
 ## How trees get on the map
-Visitors tap the map, add a photo and send. The tree shows up on the map right away for everyone (no approval step).
+Visitors tap the map, choose Tree or Menorah, add a photo and send. The pin shows up on the map right away for everyone (no approval step).
 
 ## Removing a tree
 Open `/api/admin?key=YOUR_ADMIN_KEY`. You will see every visitor tree with its photo and a Remove link.
