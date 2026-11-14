@@ -207,7 +207,7 @@ input[type="file"]::file-selector-button { background: #14161c; border-radius: 8
 .pin.pending .ring { opacity: 1; stroke: var(--accent); }
 .field input[type=file] { width: 100%; }
 input[type="file"]::file-selector-button { min-height: 52px; padding: 0 22px; margin-right: 12px; border: 0; border-radius: 12px; background: #14161c; color: #fff; font: 600 16px Figtree, system-ui, sans-serif; cursor: pointer; }
-@media (max-width: 700px) { .btn { min-height: 52px; font-size: 16px; } input[type="text"], input[type="date"], textarea { font-size: 16px; min-height: 50px; } #editor input[type="text"], #editor input[type="date"] { min-height: 40px; } #editor textarea { min-height: 48px; } }
+@media (max-width: 700px) { .btn { min-height: 52px; font-size: 16px; } input[type="text"], input[type="date"], textarea { font-size: 16px; min-height: 50px; } #editor input[type="text"], #editor input[type="date"] { min-height: 40px; } #editor textarea { min-height: 64px; } }
 .lane-note { max-width: 640px; margin: 4px auto 0; text-align: center; color: #111; font: 400 21px/1.3 Gloock, Georgia, serif; text-wrap: balance; }
 .lane-note b { font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -305,7 +305,7 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
         <div class="field" id="edSeenField"><label for="edSeenM">Date spotted</label><div class="seenrow"><select id="edSeenM"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select><select id="edSeenD"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select></div><input type="hidden" id="edSeen"></div>
         <div class="field" hidden><div class="lab" id="edRateLab">Jolly rating <span class="hint">1 plain, 5 full sparkle</span></div>
           <div class="rate" id="edRate" role="group" aria-labelledby="edRateLab"></div></div>
-        <div class="field"><label for="edNote">Comment <span class="hint">(optional)</span></label><textarea id="edNote" placeholder="The jolliest-looking tree in town"></textarea></div>
+        <div class="field"><label for="edNote">Comment <span class="hint">(optional)</span></label><textarea id="edNote" placeholder="&hellip;everywhere sparkled and glittered with bright objects. &mdash;Dickens"></textarea></div>
         <div class="field" id="edPhotoField"><div class="lab">Photo <span class="hint">(required)</span></div>
           <div class="photorow"><div class="thumb"><img id="edPhotoPrev" alt="Preview of your photo" hidden><span class="thumbempty">No photo yet</span></div>
             <div class="photocol"><label for="edPhoto" class="photobtn">Add photo</label><span class="hint" id="edPhotoName"></span></div></div>
@@ -1484,8 +1484,8 @@ button, .btn, .photobtn, select { touch-action: manipulation; }
   }
   /* ---------- kinds: Christmas trees and menorahs share one map and one form ---------- */
   var KINDS = {
-    tree:    { noun: "tree",    title: "Add a tree or menorah",    editTitle: "Edit tree",    submit: "Submit",    placeholder: "The jolliest-looking tree in town", where: "Add where the tree is.",    photo: "Add a photo of the tree.",    thanks: "Thank you! Your tree is on the map.",    alt: "Photo of the tree at " },
-    menorah: { noun: "menorah", title: "Add a tree or menorah", editTitle: "Edit menorah", submit: "Submit", placeholder: "The brightest window on the block", where: "Add where the menorah is.", photo: "Add a photo of the menorah.", thanks: "Thank you! Your menorah is on the map.", alt: "Photo of the menorah at " }
+    tree:    { noun: "tree",    title: "Add a tree or menorah",    editTitle: "Edit tree",    submit: "Submit",    placeholder: "\u2026everywhere sparkled and glittered with bright objects. \u2014Dickens", where: "Add where the tree is.",    photo: "Add a photo of the tree.",    thanks: "Thank you! Your tree is on the map.",    alt: "Photo of the tree at " },
+    menorah: { noun: "menorah", title: "Add a tree or menorah", editTitle: "Edit menorah", submit: "Submit", placeholder: "A great radiance shone forth from the menorah. \u2014Herzl", where: "Add where the menorah is.", photo: "Add a photo of the menorah.", thanks: "Thank you! Your menorah is on the map.", alt: "Photo of the menorah at " }
   };
   (function () { var sv0 = document.querySelector('#kindMenorah svg'); if (sv0) sv0.innerHTML = menorahMarkup(); })();
   var lastKind = "tree";
