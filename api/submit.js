@@ -11,8 +11,9 @@ export default async function handler(req, res) {
     if (m[1].length > 600000) return res.status(413).json({ error: "That photo is too big. Try another one." });
     const buf = Buffer.from(m[1], "base64");
     if (buf.length < 100 || buf[0] !== 0xff || buf[1] !== 0xd8) return res.status(400).json({ error: "That photo could not be read." });
+    // x and y are the map's own street-grid coordinates (the same ones the page uses: the tappable map spans roughly -170 to 735 across and -150 to 540 down)
     const x = Number(b.x), y = Number(b.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 30 || x > 900 || y < 90 || y > 880) return res.status(400).json({ error: "Missing location." });
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < -250 || x > 850 || y < -250 || y > 650) return res.status(400).json({ error: "Missing location." });
     if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) return res.status(500).json({ error: "The photo storage is not connected to this project yet." });
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = await put("photos/" + id + ".jpg", buf, { access: "public", addRandomSuffix: false, contentType: "image/jpeg" });
